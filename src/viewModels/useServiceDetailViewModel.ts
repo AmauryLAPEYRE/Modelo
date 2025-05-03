@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-// import { useServiceRepository } from '../domain/hooks/useServiceRepository';
-// import { useUserRepository } from '../domain/hooks/useUserRepository';
+import { useServiceRepository } from '../domain/hooks/useServiceRepository';
+import { useUserRepository } from '../domain/hooks/useUserRepository';
 import { useApplicationRepository } from '../domain/hooks/useApplicationRepository';
 import { useRatingRepository } from '../domain/hooks/useRatingRepository';
 import { useServiceStore } from './stores/serviceStore';

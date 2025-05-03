@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
-// import { useServiceRepository } from '../domain/hooks/useServiceRepository';
+import { useServiceRepository } from '../domain/hooks/useServiceRepository';
 import { useCategoryRepository } from '../domain/hooks/useCategoryRepository';
-// import { useFeaturedRepository } from '../domain/hooks/useFeaturedRepository';
+import { useFeaturedRepository } from '../domain/hooks/useFeaturedRepository';
 import { useServiceStore } from './stores/serviceStore';
 import { ServiceModel } from '../domain/entities/ServiceModel';
 import { CategoryModel } from '../domain/entities/CategoryModel';
 import { FeaturedBannerModel } from '../domain/entities/FeaturedBannerModel';
-// import { useDebounce } from '../utils/hooks/useDebounce';
+import { useDebounce } from '../domain/hooks/useDebounce';
 import { useUIStore } from './stores/uiStore';
 import { useAuthStore } from './stores/authStore';
 import { ROUTES } from '../utils/constants';

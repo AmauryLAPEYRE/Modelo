@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useApplicationRepository } from '../domain/hooks/useApplicationRepository';
 import { useMessageRepository } from '../domain/hooks/useMessageRepository';
 import { useUserRepository } from '../domain/hooks/useUserRepository';
-// import { useServiceRepository } from '../domain/hooks/useServiceRepository';
+import { useServiceRepository } from '../domain/hooks/useServiceRepository';
 import { useAuthStore } from './stores/authStore';
 import { useUIStore } from './stores/uiStore';
 import { useMessageStore } from './stores/messageStore';
