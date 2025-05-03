@@ -15,7 +15,13 @@ interface AuthState {
   // Actions
   setUser: (user: UserModel | null) => void;
   setFirebaseUser: (user: User | null) => void;
-  setAuthenticated: (isAuthenticated: boolean) => void;
+  setAuthState: (params: {
+    user?: UserModel | null;
+    firebaseUser?: User | null;
+    isAuthenticated?: boolean;
+    isLoading?: boolean;
+    error?: string | null;
+  }) => void;
   setInitialized: (isInitialized: boolean) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
@@ -28,7 +34,7 @@ interface AuthState {
 /**
  * Store Zustand pour gérer l'état d'authentification
  */
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   // État initial
   user: null,
   firebaseUser: null,
@@ -45,7 +51,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAuthenticated: !!firebaseUser
   }),
   
-  setAuthenticated: (isAuthenticated: boolean) => set({ isAuthenticated }),
+  // Utiliser cette fonction pour mettre à jour plusieurs états d'un coup
+  // et éviter les rendus multiples et les risques de boucle
+  setAuthState: (params) => set((state) => ({
+    ...state,
+    ...(params.user !== undefined && { user: params.user }),
+    ...(params.firebaseUser !== undefined && { firebaseUser: params.firebaseUser }),
+    ...(params.isAuthenticated !== undefined && { isAuthenticated: params.isAuthenticated }),
+    ...(params.isLoading !== undefined && { isLoading: params.isLoading }),
+    ...(params.error !== undefined && { error: params.error })
+  })),
   
   setInitialized: (isInitialized: boolean) => set({ isInitialized }),
   
@@ -62,12 +77,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Helper pour s'abonner aux changements d'état d'authentification Firebase
   subscribeToAuthChanges: (callback) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // Mettre à jour l'état d'authentification
+      // Mettre à jour l'état d'authentification en une seule opération
       set({
         firebaseUser: user,
         isAuthenticated: !!user,
         isInitialized: true,
-        isLoading: false
+        // Ne pas modifier isLoading ici, laissez cette responsabilité à l'appelant
       });
       
       // Appeler le callback avec l'utilisateur Firebase

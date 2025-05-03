@@ -1,13 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Platform, View, Text } from 'react-native';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
+import { SplashScreen, Stack, useSegments, useRootNavigationState, router } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../src/viewModels/stores/authStore';
 import { useUserRepository } from '../src/domain/hooks/useUserRepository';
-import { auth } from '../src/services/firebase/config';
-import { onAuthStateChanged } from 'firebase/auth';
+import { ROUTES } from '../src/utils/constants';
 
 // Empêcher l'écran de démarrage de disparaître automatiquement
 SplashScreen.preventAutoHideAsync();
@@ -15,63 +14,105 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   // Chargement des polices
   const [fontsLoaded, fontError] = useFonts({
-    // 'Roboto-Regular': require('../src/assets/fonts/Roboto-Regular.ttf'),
-    // 'Roboto-Medium': require('../src/assets/fonts/Roboto-Medium.ttf'),
-    // 'Roboto-Bold': require('../src/assets/fonts/Roboto-Bold.ttf'),
-    // 'Roboto-Light': require('../src/assets/fonts/Roboto-Light.ttf'),
-    // 'Roboto-Italic': require('../src/assets/fonts/Roboto-Italic.ttf'),
+    // Vos polices ici...
   });
 
   // Repositories
   const userRepository = useUserRepository();
 
+  // Navigation state
+  const segments = useSegments();
+  const navigationState = useRootNavigationState();
+
   // Stores
   const { 
-    setUser, 
-    setFirebaseUser, 
-    setInitialized, 
-    isInitialized, 
-    isAuthenticated, 
+    user, 
+    firebaseUser,
+    isAuthenticated,
+    isInitialized,
+    isLoading,
+    setAuthState,
+    setUser,
+    setFirebaseUser,
+    setInitialized,
     setLoading,
-    setError
+    setError,
+    subscribeToAuthChanges
   } = useAuthStore();
+
+  // Utiliser une ref pour éviter les redirections multiples
+  const isRedirecting = useRef(false);
 
   // Écouter les changements d'état d'authentification Firebase
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    // Référence pour savoir si le composant est monté
+    let isMounted = true;
+
+    const unsubscribe = subscribeToAuthChanges(async (firebaseUser) => {
+      if (!isMounted) return;
+      
       setLoading(true);
       
       try {
-        setFirebaseUser(firebaseUser);
-        
         if (firebaseUser) {
           // Récupérer les données utilisateur dans Firestore
           const userData = await userRepository.getUserById(firebaseUser.uid);
-          setUser(userData);
-        } else {
+          
+          if (isMounted) {
+            setUser(userData);
+          }
+        } else if (isMounted) {
           setUser(null);
         }
       } catch (error) {
         console.error('Error handling auth state change:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Erreur d\'authentification';
-        setError(errorMessage);
+        if (isMounted) {
+          setError(error instanceof Error ? error.message : 'Erreur d\'authentification');
+        }
       } finally {
-        setLoading(false);
-        setInitialized(true);
+        if (isMounted) {
+          setLoading(false);
+          setInitialized(true);
+        }
       }
     });
     
     // Nettoyer l'abonnement lors du démontage
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
+
+  // Gérer la navigation en fonction de l'état d'authentification
+  useEffect(() => {
+    if (!navigationState?.key || !isInitialized || isLoading || isRedirecting.current) return;
+    
+    const inAuthGroup = segments[0] === '(auth)';
+    const inPublicGroup = segments[0] === '(public)';
+    
+    if (isAuthenticated && user) {
+      // Éviter la redirection si l'utilisateur est déjà dans le bon groupe
+      if (!inAuthGroup) {
+        isRedirecting.current = true;
+        router.replace(ROUTES.HOME);
+        setTimeout(() => {
+          isRedirecting.current = false;
+        }, 100);
+      }
+    } else if (!inPublicGroup) {
+      isRedirecting.current = true;
+      router.replace(ROUTES.LOGIN);
+      setTimeout(() => {
+        isRedirecting.current = false;
+      }, 100);
+    }
+  }, [isAuthenticated, user, segments, navigationState, isInitialized, isLoading]);
 
   // Cacher l'écran de démarrage une fois les polices chargées et l'initialisation terminée
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      // Attendre que l'initialisation soit terminée avant de cacher l'écran de démarrage
-      if (isInitialized) {
-        SplashScreen.hideAsync();
-      }
+    if ((fontsLoaded || fontError) && isInitialized) {
+      SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError, isInitialized]);
 
