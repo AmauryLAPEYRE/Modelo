@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { UserModel } from '../../domain/entities/UserModel';
-import { auth } from '../../services/firebase/auth';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '../../services/firebase/config';
 
 interface AuthState {
   // État
