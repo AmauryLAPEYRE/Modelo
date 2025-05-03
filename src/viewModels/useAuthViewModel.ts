@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { router, useSegments, useRootNavigationState } from 'expo-router';
 import { useAuthStore } from './stores/authStore';
 import { useUserRepository } from '../domain/hooks/useUserRepository';
@@ -30,12 +30,9 @@ export const useAuthViewModel = () => {
     error,
     setUser, 
     setFirebaseUser,
-    setAuthenticated,
-    setInitialized,
     setLoading,
     setError,
     logout: logoutStore,
-    subscribeToAuthChanges
   } = useAuthStore();
   
   const { showToast } = useUIStore();
@@ -49,64 +46,8 @@ export const useAuthViewModel = () => {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   
-  /**
-   * S'abonner aux changements d'authentification de Firebase
-   */
-  useEffect(() => {
-    const unsubscribe = subscribeToAuthChanges(async (firebaseUser: User | null) => {
-      if (firebaseUser) {
-        try {
-          // Récupérer les données de l'utilisateur depuis Firestore
-          const userData = await userRepository.getUserById(firebaseUser.uid);
-          
-          if (userData) {
-            setUser(userData);
-          } else {
-            // L'utilisateur existe dans Auth mais pas dans Firestore
-            setError('Erreur de récupération du profil utilisateur');
-            await logoutUser();
-            setUser(null);
-            setAuthenticated(false);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          setError(error instanceof Error ? error.message : 'Erreur de connexion');
-        }
-      } else {
-        setUser(null);
-      }
-    });
-    
-    // Nettoyer l'abonnement lors du démontage
-    return unsubscribe;
-  }, []);
-  
-  /**
-   * Gérer la navigation en fonction de l'état d'authentification
-   */
-  useEffect(() => {
-    if (!navigationState?.key || !isInitialized) return;
-    
-    const inAuthGroup = segments[0] === '(auth)';
-    const inPublicGroup = segments[0] === '(public)';
-    
-    if (isAuthenticated && !user) {
-      // Attendre que les données utilisateur soient chargées
-      return;
-    }
-    
-    if (isAuthenticated && user) {
-      // Utilisateur connecté
-      if (!inAuthGroup) {
-        router.replace(ROUTES.HOME);
-      }
-    } else {
-      // Utilisateur non connecté
-      if (!inPublicGroup) {
-        router.replace(ROUTES.LOGIN);
-      }
-    }
-  }, [isAuthenticated, user, segments, navigationState, isInitialized]);
+  // Indicateur pour éviter les opérations doubles
+  const processingAuth = useRef(false);
   
   /**
    * Enregistrer un nouveau modèle
@@ -116,6 +57,9 @@ export const useAuthViewModel = () => {
     email: string,
     password: string
   ) => {
+    if (processingAuth.current) return false;
+    processingAuth.current = true;
+    
     setRegistrationLoading(true);
     setError(null);
     
@@ -152,6 +96,7 @@ export const useAuthViewModel = () => {
       return false;
     } finally {
       setRegistrationLoading(false);
+      processingAuth.current = false;
     }
   }, []);
   
@@ -163,6 +108,9 @@ export const useAuthViewModel = () => {
     email: string,
     password: string
   ) => {
+    if (processingAuth.current) return false;
+    processingAuth.current = true;
+    
     setRegistrationLoading(true);
     setError(null);
     
@@ -199,6 +147,7 @@ export const useAuthViewModel = () => {
       return false;
     } finally {
       setRegistrationLoading(false);
+      processingAuth.current = false;
     }
   }, []);
   
@@ -206,11 +155,17 @@ export const useAuthViewModel = () => {
    * Connecter un utilisateur
    */
   const login = useCallback(async (email: string, password: string) => {
+    if (processingAuth.current) return false;
+    processingAuth.current = true;
+    
     setLoginLoading(true);
     setError(null);
     
     try {
-      await loginWithEmailAndPassword(email, password);
+      const userCredential = await loginWithEmailAndPassword(email, password);
+      
+      // Ne pas appeler setUser ici, laissez onAuthStateChanged s'en charger
+      console.log('Login successful:', userCredential.user.uid);
       return true;
     } catch (error) {
       console.error('Error during login:', error);
@@ -237,6 +192,7 @@ export const useAuthViewModel = () => {
       return false;
     } finally {
       setLoginLoading(false);
+      processingAuth.current = false;
     }
   }, []);
   
@@ -244,11 +200,14 @@ export const useAuthViewModel = () => {
    * Déconnecter l'utilisateur
    */
   const logout = useCallback(async () => {
+    if (processingAuth.current) return false;
+    processingAuth.current = true;
+    
     try {
       await logoutUser();
       logoutStore();
       
-      router.replace(ROUTES.LOGIN);
+      // La redirection se fera automatiquement via _layout.tsx
       
       return true;
     } catch (error) {
@@ -266,6 +225,8 @@ export const useAuthViewModel = () => {
       });
       
       return false;
+    } finally {
+      processingAuth.current = false;
     }
   }, []);
   
@@ -273,6 +234,9 @@ export const useAuthViewModel = () => {
    * Réinitialiser le mot de passe
    */
   const forgotPassword = useCallback(async (email: string) => {
+    if (processingAuth.current) return false;
+    processingAuth.current = true;
+    
     setResetPasswordLoading(true);
     setError(null);
     
@@ -308,6 +272,7 @@ export const useAuthViewModel = () => {
       return false;
     } finally {
       setResetPasswordLoading(false);
+      processingAuth.current = false;
     }
   }, []);
   

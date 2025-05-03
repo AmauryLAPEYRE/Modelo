@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth'; // Changez cette ligne
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import Constants from 'expo-constants';
@@ -18,17 +18,23 @@ const firebaseConfig = {
 // Initialiser Firebase uniquement s'il n'est pas déjà initialisé
 let app;
 let auth;
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-  // Simplifiez l'initialisation de l'authentification
-  auth = getAuth(app);
-} else {
-  app = getApp();
-  auth = getAuth(app);
-}
+let db;
+let storage;
 
-// Obtenir les références des services Firebase
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Utilisation d'une IIFE pour initialiser Firebase une seule fois
+(() => {
+  if (getApps().length === 0) {
+    console.log("Initializing Firebase...");
+    app = initializeApp(firebaseConfig);
+  } else {
+    console.log("Firebase already initialized");
+    app = getApp();
+  }
+  
+  // Initialiser les services
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+})();
 
 export { app, auth, db, storage };

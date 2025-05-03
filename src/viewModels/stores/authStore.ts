@@ -15,13 +15,6 @@ interface AuthState {
   // Actions
   setUser: (user: UserModel | null) => void;
   setFirebaseUser: (user: User | null) => void;
-  setAuthState: (params: {
-    user?: UserModel | null;
-    firebaseUser?: User | null;
-    isAuthenticated?: boolean;
-    isLoading?: boolean;
-    error?: string | null;
-  }) => void;
   setInitialized: (isInitialized: boolean) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
@@ -34,7 +27,7 @@ interface AuthState {
 /**
  * Store Zustand pour gérer l'état d'authentification
  */
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   // État initial
   user: null,
   firebaseUser: null,
@@ -44,23 +37,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
   
   // Actions
-  setUser: (user: UserModel | null) => set({ user }),
+  setUser: (user: UserModel | null) => set({ 
+    user, 
+    isAuthenticated: !!user 
+  }),
   
   setFirebaseUser: (firebaseUser: User | null) => set({ 
     firebaseUser,
-    isAuthenticated: !!firebaseUser
+    // Ne pas modifier isAuthenticated ici pour éviter des mises à jour doubles
   }),
-  
-  // Utiliser cette fonction pour mettre à jour plusieurs états d'un coup
-  // et éviter les rendus multiples et les risques de boucle
-  setAuthState: (params) => set((state) => ({
-    ...state,
-    ...(params.user !== undefined && { user: params.user }),
-    ...(params.firebaseUser !== undefined && { firebaseUser: params.firebaseUser }),
-    ...(params.isAuthenticated !== undefined && { isAuthenticated: params.isAuthenticated }),
-    ...(params.isLoading !== undefined && { isLoading: params.isLoading }),
-    ...(params.error !== undefined && { error: params.error })
-  })),
   
   setInitialized: (isInitialized: boolean) => set({ isInitialized }),
   
@@ -78,11 +63,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   subscribeToAuthChanges: (callback) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       // Mettre à jour l'état d'authentification en une seule opération
-      set({
-        firebaseUser: user,
-        isAuthenticated: !!user,
-        isInitialized: true,
-        // Ne pas modifier isLoading ici, laissez cette responsabilité à l'appelant
+      set(state => {
+        // Si l'état est déjà cohérent, ne pas mettre à jour pour éviter les boucles
+        if ((!!user) === state.isAuthenticated && 
+            (user?.uid === state.firebaseUser?.uid)) {
+          return state;
+        }
+        
+        return {
+          firebaseUser: user,
+          isAuthenticated: !!user,
+          // Ne pas modifier isInitialized et isLoading ici
+        };
       });
       
       // Appeler le callback avec l'utilisateur Firebase

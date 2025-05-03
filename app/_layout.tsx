@@ -27,13 +27,9 @@ export default function RootLayout() {
   // Stores
   const { 
     user, 
-    firebaseUser,
     isAuthenticated,
     isInitialized,
     isLoading,
-    setAuthState,
-    setUser,
-    setFirebaseUser,
     setInitialized,
     setLoading,
     setError,
@@ -42,9 +38,15 @@ export default function RootLayout() {
 
   // Utiliser une ref pour éviter les redirections multiples
   const isRedirecting = useRef(false);
+  const hasSubscribed = useRef(false);
 
   // Écouter les changements d'état d'authentification Firebase
   useEffect(() => {
+    // Éviter de s'abonner plusieurs fois
+    if (hasSubscribed.current) return;
+    
+    hasSubscribed.current = true;
+    
     // Référence pour savoir si le composant est monté
     let isMounted = true;
 
@@ -58,11 +60,8 @@ export default function RootLayout() {
           // Récupérer les données utilisateur dans Firestore
           const userData = await userRepository.getUserById(firebaseUser.uid);
           
-          if (isMounted) {
-            setUser(userData);
-          }
-        } else if (isMounted) {
-          setUser(null);
+          // Ne pas mettre à jour l'état si le composant est démonté
+          if (!isMounted) return;
         }
       } catch (error) {
         console.error('Error handling auth state change:', error);
@@ -81,6 +80,7 @@ export default function RootLayout() {
     return () => {
       isMounted = false;
       unsubscribe();
+      hasSubscribed.current = false;
     };
   }, []);
 
@@ -91,18 +91,23 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === '(auth)';
     const inPublicGroup = segments[0] === '(public)';
     
+    // Éviter les redirections inutiles et les boucles
     if (isAuthenticated && user) {
-      // Éviter la redirection si l'utilisateur est déjà dans le bon groupe
-      if (!inAuthGroup) {
+      if (!inAuthGroup && !isRedirecting.current) {
         isRedirecting.current = true;
+        console.log('Redirecting to HOME');
         router.replace(ROUTES.HOME);
+        
+        // Réinitialiser après un délai pour permettre d'autres redirections plus tard
         setTimeout(() => {
           isRedirecting.current = false;
         }, 100);
       }
-    } else if (!inPublicGroup) {
+    } else if (!inPublicGroup && !isRedirecting.current) {
       isRedirecting.current = true;
+      console.log('Redirecting to LOGIN');
       router.replace(ROUTES.LOGIN);
+      
       setTimeout(() => {
         isRedirecting.current = false;
       }, 100);
