@@ -1,12 +1,12 @@
 // src/services/firebase/config.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth } from 'firebase/auth'; // Modification ici - simplifier les imports
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-// Configuration Firebase basée sur le fichier .env via app.config.js
+// Configuration Firebase
 const firebaseConfig = {
   apiKey: Constants.expoConfig?.extra?.firebaseApiKey,
   authDomain: Constants.expoConfig?.extra?.firebaseAuthDomain,
@@ -17,7 +17,7 @@ const firebaseConfig = {
   measurementId: Constants.expoConfig?.extra?.firebaseMeasurementId
 };
 
-// Si les variables d'environnement ne sont pas chargées correctement, utilisez les valeurs directes pour débloquer le développement
+// Fallback pour les valeurs directes
 if (!firebaseConfig.apiKey) {
   console.warn('Firebase config not loaded from environment variables, using direct values');
   Object.assign(firebaseConfig, {
@@ -31,19 +31,16 @@ if (!firebaseConfig.apiKey) {
   });
 }
 
-// Initialiser Firebase
+// Initialiser Firebase - MODIFIÉ
 let app;
-let auth;
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
 } else {
   app = getApp();
-  auth = getAuth(app);
 }
 
+// Simplifier l'initialisation pour éviter l'erreur
+const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 

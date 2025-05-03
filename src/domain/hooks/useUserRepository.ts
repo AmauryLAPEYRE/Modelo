@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { UserRepository, UserRepositoryImpl } from '../repositories/userRepository';
+import { UserRepository, UserRepositoryImpl } from '../repositories/UserRepository';
 
 /**
  * Hook pour accéder au repository utilisateur
