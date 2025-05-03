@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { router, useSegments, useRootNavigationState } from 'expo-router';
+import { useState, useCallback, useRef } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { useUserRepository } from '../domain/hooks/useUserRepository';
 import { UserModel, UserRole, ModelUserModel, ProfessionalUserModel } from '../domain/entities/UserModel';
@@ -9,9 +8,7 @@ import {
   logoutUser,
   resetPassword
 } from '../services/firebase/auth';
-import { User } from 'firebase/auth';
 import { useUIStore } from './stores/uiStore';
-import { ROUTES } from '../utils/constants';
 
 /**
  * ViewModel pour gérer l'authentification
@@ -41,10 +38,6 @@ export const useAuthViewModel = () => {
   const [registrationLoading, setRegistrationLoading] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
-  
-  // Navigation
-  const segments = useSegments();
-  const navigationState = useRootNavigationState();
   
   // Indicateur pour éviter les opérations doubles
   const processingAuth = useRef(false);
@@ -76,6 +69,7 @@ export const useAuthViewModel = () => {
       });
       
       // Connecter l'utilisateur automatiquement
+      // Note: La mise à jour de l'état d'authentification se fera via onAuthStateChanged
       await loginWithEmailAndPassword(email, password);
       
       return true;
@@ -127,6 +121,7 @@ export const useAuthViewModel = () => {
       });
       
       // Connecter l'utilisateur automatiquement
+      // Note: La mise à jour de l'état d'authentification se fera via onAuthStateChanged
       await loginWithEmailAndPassword(email, password);
       
       return true;
@@ -162,10 +157,10 @@ export const useAuthViewModel = () => {
     setError(null);
     
     try {
-      const userCredential = await loginWithEmailAndPassword(email, password);
+      // Utiliser cette fonction uniquement pour déclencher le processus d'authentification
+      // La mise à jour des états se fera via onAuthStateChanged
+      await loginWithEmailAndPassword(email, password);
       
-      // Ne pas appeler setUser ici, laissez onAuthStateChanged s'en charger
-      console.log('Login successful:', userCredential.user.uid);
       return true;
     } catch (error) {
       console.error('Error during login:', error);
@@ -204,10 +199,11 @@ export const useAuthViewModel = () => {
     processingAuth.current = true;
     
     try {
+      // Déconnecter d'abord Firebase (cela déclenchera onAuthStateChanged)
       await logoutUser();
-      logoutStore();
       
-      // La redirection se fera automatiquement via _layout.tsx
+      // Puis mettre à jour le store localement
+      logoutStore();
       
       return true;
     } catch (error) {

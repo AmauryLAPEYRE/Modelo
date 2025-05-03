@@ -27,7 +27,7 @@ interface AuthState {
 /**
  * Store Zustand pour gérer l'état d'authentification
  */
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   // État initial
   user: null,
   firebaseUser: null,
@@ -42,9 +42,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     isAuthenticated: !!user 
   }),
   
-  setFirebaseUser: (firebaseUser: User | null) => set({ 
-    firebaseUser,
-    // Ne pas modifier isAuthenticated ici pour éviter des mises à jour doubles
+  setFirebaseUser: (firebaseUser: User | null) => set(state => {
+    // Si l'utilisateur Firebase change, mettre à jour son état
+    // sans toucher aux autres propriétés qui seront gérées séparément
+    if (firebaseUser?.uid !== state.firebaseUser?.uid) {
+      return { firebaseUser };
+    }
+    return state;
   }),
   
   setInitialized: (isInitialized: boolean) => set({ isInitialized }),
@@ -61,26 +65,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   
   // Helper pour s'abonner aux changements d'état d'authentification Firebase
   subscribeToAuthChanges: (callback) => {
+    // On utilise une variable pour suivre si l'abonnement est actif
+    let isActive = true;
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // Mettre à jour l'état d'authentification en une seule opération
+      // Ne pas continuer si l'abonnement a été annulé
+      if (!isActive) return;
+      
+      // Mettre à jour uniquement le firebaseUser
+      // Le reste (user et isAuthenticated) sera géré par le callback
       set(state => {
-        // Si l'état est déjà cohérent, ne pas mettre à jour pour éviter les boucles
-        if ((!!user) === state.isAuthenticated && 
-            (user?.uid === state.firebaseUser?.uid)) {
-          return state;
+        if (user?.uid === state.firebaseUser?.uid) {
+          return state; // Pas de changement nécessaire
         }
         
-        return {
-          firebaseUser: user,
-          isAuthenticated: !!user,
-          // Ne pas modifier isInitialized et isLoading ici
-        };
+        return { firebaseUser: user };
       });
       
       // Appeler le callback avec l'utilisateur Firebase
-      callback(user);
+      // C'est ce callback qui va gérer la mise à jour du user Firestore et isAuthenticated
+      if (isActive) {
+        callback(user);
+      }
     });
     
-    return unsubscribe;
+    // Retourner une fonction qui nettoie l'abonnement
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
   }
 }));

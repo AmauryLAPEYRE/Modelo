@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+// app/_layout.tsx
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, View, Text } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack, useSegments, useRootNavigationState, router } from 'expo-router';
@@ -30,15 +31,26 @@ export default function RootLayout() {
     isAuthenticated,
     isInitialized,
     isLoading,
+    setUser,
     setInitialized,
     setLoading,
     setError,
     subscribeToAuthChanges
   } = useAuthStore();
 
+  // État local pour éviter les rendus multiples
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+
   // Utiliser une ref pour éviter les redirections multiples
   const isRedirecting = useRef(false);
   const hasSubscribed = useRef(false);
+
+  // Suivre l'état de la navigation
+  useEffect(() => {
+    if (navigationState?.key) {
+      setIsNavigationReady(true);
+    }
+  }, [navigationState?.key]);
 
   // Écouter les changements d'état d'authentification Firebase
   useEffect(() => {
@@ -62,6 +74,16 @@ export default function RootLayout() {
           
           // Ne pas mettre à jour l'état si le composant est démonté
           if (!isMounted) return;
+          
+          // IMPORTANT: Mettre à jour l'utilisateur dans le store
+          if (userData) {
+            setUser(userData);
+          }
+        } else {
+          // Utilisateur déconnecté, s'assurer que user est null
+          if (isMounted) {
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error('Error handling auth state change:', error);
@@ -86,33 +108,41 @@ export default function RootLayout() {
 
   // Gérer la navigation en fonction de l'état d'authentification
   useEffect(() => {
-    if (!navigationState?.key || !isInitialized || isLoading || isRedirecting.current) return;
+    // Attendre que tout soit prêt avant de gérer la navigation
+    if (!isNavigationReady || !isInitialized || isLoading || isRedirecting.current) {
+      return;
+    }
     
     const inAuthGroup = segments[0] === '(auth)';
     const inPublicGroup = segments[0] === '(public)';
     
-    // Éviter les redirections inutiles et les boucles
-    if (isAuthenticated && user) {
-      if (!inAuthGroup && !isRedirecting.current) {
+    // Exécution décalée pour éviter les conflits de navigation
+    const timeoutId = setTimeout(() => {
+      // Éviter les redirections inutiles et les boucles
+      if (isAuthenticated && user) {
+        if (!inAuthGroup && !isRedirecting.current) {
+          isRedirecting.current = true;
+          console.log('Redirecting to HOME');
+          router.replace(ROUTES.HOME);
+          
+          // Réinitialiser après un délai pour permettre d'autres redirections plus tard
+          setTimeout(() => {
+            isRedirecting.current = false;
+          }, 500); // Augmenté pour plus de sécurité
+        }
+      } else if (!inPublicGroup && !isRedirecting.current) {
         isRedirecting.current = true;
-        console.log('Redirecting to HOME');
-        router.replace(ROUTES.HOME);
+        console.log('Redirecting to LOGIN');
+        router.replace(ROUTES.LOGIN);
         
-        // Réinitialiser après un délai pour permettre d'autres redirections plus tard
         setTimeout(() => {
           isRedirecting.current = false;
-        }, 100);
+        }, 500); // Augmenté pour plus de sécurité
       }
-    } else if (!inPublicGroup && !isRedirecting.current) {
-      isRedirecting.current = true;
-      console.log('Redirecting to LOGIN');
-      router.replace(ROUTES.LOGIN);
-      
-      setTimeout(() => {
-        isRedirecting.current = false;
-      }, 100);
-    }
-  }, [isAuthenticated, user, segments, navigationState, isInitialized, isLoading]);
+    }, 100); // Délai pour éviter les conflits de navigation
+    
+    return () => clearTimeout(timeoutId);
+  }, [isAuthenticated, user, segments, isNavigationReady, isInitialized, isLoading]);
 
   // Cacher l'écran de démarrage une fois les polices chargées et l'initialisation terminée
   useEffect(() => {
