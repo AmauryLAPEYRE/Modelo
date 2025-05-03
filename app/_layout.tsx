@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../src/viewModels/stores/authStore';
 import { useUserRepository } from '../src/domain/hooks/useUserRepository';
 import { auth } from '../src/services/firebase/config';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from '../src/services/firebase/auth';
 
 // Empêcher l'écran de démarrage de disparaître automatiquement
 SplashScreen.preventAutoHideAsync();
